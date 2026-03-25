@@ -462,7 +462,7 @@ document.getElementById('analyze-btn').addEventListener('click', async () => {
         activateStep('step-1');
         const formData = new FormData();
         formData.append('file', selectedFile);
-        const uploadRes = await fetch('medassist-production-af23.up.railway.app/upload', { method: 'POST', body: formData });
+        const uploadRes = await fetch('https://medassist-production-af23.up.railway.appupload', { method: 'POST', body: formData });
         const uploadData = await uploadRes.json();
         console.log('UPLOAD:', uploadData);
         markStepDone('step-1');
@@ -477,7 +477,7 @@ document.getElementById('analyze-btn').addEventListener('click', async () => {
         analyzeForm.append('text', uploadData.text);
         analyzeForm.append('language', selectedLang);
         analyzeForm.append('age', age || '');
-        const analyzeRes = await fetch('medassist-production-af23.up.railway.app/analyze', { method: 'POST', body: analyzeForm });
+        const analyzeRes = await fetch('https://medassist-production-af23.up.railway.appanalyze', { method: 'POST', body: analyzeForm });
         const analyzeData = await analyzeRes.json();
         console.log('ANALYZE:', analyzeData);
         markStepDone('step-4');
