@@ -1,0 +1,8 @@
+groq
+fastapi
+uvicorn
+pdfplumber
+pillow
+pytesseract
+fitz
+# Add any other dependencies your backend uses below

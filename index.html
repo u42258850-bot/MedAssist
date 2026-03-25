@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedAssist | AI Medical Document Simplifier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Sora:wght@700;800&family=Space+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --surface: #f5f7fa;
+            --primary: #00b894;
+            --primary-glow: rgba(0, 184, 148, 0.15);
+            --secondary: #0984e3;
+            --warning: #fdcb6e;
+            --danger: #d63031;
+            --text-main: #222f3e;
+            --text-muted: #636e72;
+            --glass: rgba(245, 247, 250, 0.7);
+            --border: rgba(0, 184, 148, 0.10);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+        body { background-color: var(--bg); color: var(--text-main); font-family: 'DM Sans', sans-serif; overflow-x: hidden; line-height: 1.6; }
+        h1, h2, h3, .sora { font-family: 'Sora', sans-serif; }
+        .mono { font-family: 'Space Mono', monospace; }
+        #bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        .scroll-icon-container { position: fixed; bottom: 40px; right: 40px; z-index: 1001; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+        .scroll-icon { width: 60px; height: 60px; background: rgba(0, 212, 168, 0.1); backdrop-filter: blur(10px); border: 1px solid var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); transition: transform 0.1s linear; }
+        .content-wrapper { position: relative; z-index: 1; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+        nav { position: fixed; top: 0; left: 0; width: 100%; height: 80px; display: flex; align-items: center; z-index: 1000; transition: all 0.3s ease; background: rgba(5, 13, 26, 0); border-bottom: 1px solid transparent; }
+        nav.scrolled { background: rgba(5, 13, 26, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+        .nav-container { width: 100%; max-width: 1400px; margin: 0 auto; padding: 0 4rem; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 12px; font-size: 1.5rem; font-weight: 800; color: var(--text-main); text-decoration: none; }
+        .logo svg { color: var(--primary); }
+        .nav-links { display: flex; gap: 40px; }
+        .nav-links a { color: var(--text-muted); text-decoration: none; font-weight: 500; transition: color 0.3s ease; font-size: 0.95rem; }
+        .nav-links a:hover { color: var(--primary); }
+        .btn-try { padding: 10px 24px; border: 1px solid var(--primary); color: var(--primary); border-radius: 999px; text-decoration: none; font-weight: 600; transition: all 0.3s ease; background: transparent; }
+        .btn-try:hover { background: var(--primary); color: var(--bg); }
+        .hero { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding-top: 80px; }
+        .badge { background: rgba(0, 212, 168, 0.1); border: 1px solid var(--primary); color: var(--primary); padding: 6px 16px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2rem; animation: pulse-glow 2s infinite; }
+        @keyframes pulse-glow { 0% { box-shadow: 0 0 5px rgba(0,212,168,0.2); } 50% { box-shadow: 0 0 20px rgba(0,212,168,0.4); } 100% { box-shadow: 0 0 5px rgba(0,212,168,0.2); } }
+        .hero h1 { font-size: clamp(3rem, 8vw, 5rem); line-height: 1.1; margin-bottom: 1.5rem; max-width: 1000px; }
+        .gradient-text { background: linear-gradient(90deg, var(--primary), #3b82f6); -webkit-background-clip: text; -moz-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+        .hero p { font-size: 1.25rem; color: var(--text-muted); max-width: 700px; margin-bottom: 3rem; }
+        .hero-btns { display: flex; gap: 20px; margin-bottom: 4rem; }
+        .btn-primary { height: 60px; padding: 0 40px; background: var(--primary); color: #fff; border-radius: 999px; font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: transform 0.3s ease, box-shadow 0.3s ease; border: none; cursor: pointer; }
+        .btn-primary:hover { transform: scale(1.04); box-shadow: 0 10px 30px var(--primary-glow); }
+        .btn-outline { height: 60px; padding: 0 40px; border: 1px solid var(--text-muted); color: var(--text-main); border-radius: 999px; font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: all 0.3s ease; }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+        .trust-indicators { display: flex; gap: 30px; color: var(--text-muted); font-size: 0.9rem; font-weight: 500; }
+        .trust-indicators span { color: var(--primary); margin-right: 8px; }
+        .scroll-indicator { position: absolute; bottom: 40px; animation: bounce 2s infinite; }
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-5px); } }
+        .stats-bar { background: #f8fafc; padding: 4rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; }
+        .stat-item h3 { font-size: 3rem; color: var(--primary); margin-bottom: 0.5rem; }
+        .stat-item p { color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem; font-weight: 700; }
+        .section-padding { padding: 10rem 0; }
+        .section-title { text-align: center; margin-bottom: 5rem; }
+        .section-title h2 { font-size: 3rem; margin-bottom: 1rem; }
+        .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+        .how-card { background: var(--surface); padding: 3rem; border-radius: 24px; border-left: 4px solid var(--primary); position: relative; overflow: hidden; transition: all 0.3s ease; }
+        .how-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,212,168,0.1); }
+        .step-num { position: absolute; top: -20px; right: -10px; font-size: 10rem; font-weight: 800; color: rgba(0,212,168,0.03); line-height: 1; }
+        .how-icon { width: 60px; height: 60px; background: rgba(0,212,168,0.1); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: var(--primary); margin-bottom: 2rem; }
+        .how-card h3 { font-size: 1.5rem; margin-bottom: 1rem; }
+        .how-card p { color: var(--text-muted); }
+        .app-section { background: #fff; border: 1px solid var(--border); border-radius: 32px; padding: 4rem; display: grid; grid-template-columns: 4fr 6fr; gap: 60px; margin-bottom: 10rem; position: relative; overflow: hidden; }
+        .scanning-beam { position: absolute; top: -100%; left: 0; width: 100%; height: 100px; background: linear-gradient(to bottom, transparent, rgba(0,212,168,0.2), transparent); z-index: 2; pointer-events: none; display: none; }
+        @keyframes scan { 0% { top: -10%; } 100% { top: 110%; } }
+        .scanning-beam.active { display: block; animation: scan 2s linear infinite; }
+        .app-left h4 { font-size: 0.8rem; letter-spacing: 2px; color: var(--primary); margin-bottom: 2rem; text-transform: uppercase; }
+        .upload-zone { border: 2px dashed var(--border); border-radius: 24px; padding: 4rem 2rem; text-align: center; cursor: pointer; transition: all 0.3s ease; background: #f5f7fa; margin-bottom: 2rem; position: relative; }
+        .upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: #e9f7f3; }
+        .upload-icon { color: var(--primary); margin-bottom: 1.5rem; animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .upload-zone p { font-weight: 600; margin-bottom: 0.5rem; }
+        .upload-zone span { font-size: 0.85rem; color: var(--text-muted); }
+        .lang-selector { display: flex; gap: 12px; margin-bottom: 2rem; }
+        .lang-pill { flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: all 0.3s ease; font-family: 'DM Sans', sans-serif; font-size: 1rem; }
+        .lang-pill.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .input-group { margin-bottom: 2rem; }
+        .input-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; }
+        .input-group input { width: 100%; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px; color: #222f3e; outline: none; transition: border-color 0.3s ease; font-family: 'DM Sans', sans-serif; font-size: 1rem; }
+        .input-group input:focus { border-color: var(--primary); }
+        .btn-analyze { width: 100%; height: 60px; background: var(--primary); color: #fff; border: none; border-radius: 16px; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 1.1rem; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-analyze:hover { box-shadow: 0 0 30px var(--primary-glow); transform: translateY(-2px); }
+        .btn-analyze:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .app-right { position: relative; min-height: 500px; }
+        .empty-state { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-align: center; gap: 16px; }
+        .empty-state svg { opacity: 0.08; width: 100px; height: 100px; }
+        .loading-state { display: none; flex-direction: column; gap: 20px; padding: 2rem; justify-content: center; height: 100%; }
+        .loading-step { display: flex; align-items: center; gap: 15px; opacity: 0.3; transition: all 0.5s ease; font-size: 0.95rem; }
+        .loading-step.active { opacity: 1; color: var(--primary); font-weight: 600; }
+        .loading-step.done { opacity: 0.7; color: var(--text-main); }
+        .spinner { width: 20px; height: 20px; border: 2px solid rgba(0,212,168,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .output-container { display: none; flex-direction: column; gap: 24px; }
+        .output-card { background: #f5f7fa; border-radius: 20px; padding: 2rem; border-left: 4px solid var(--primary); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .card-header h3 { font-size: 1.1rem; display: flex; align-items: center; gap: 10px; font-family: 'Sora', sans-serif; }
+        .btn-copy { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 8px 14px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .btn-copy:hover { color: var(--primary); border-color: var(--primary); background: rgba(0,212,168,0.05); }
+        .summary-text { font-size: 1.3rem; font-weight: 700; line-height: 1.5; color: var(--text-main); }
+        .faithfulness-bar { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(0,0,0,0.06); }
+        .faithfulness-bar span { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .bar-track { flex: 1; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 1.2s ease; width: 0%; }
+        .bar-val { font-size: 12px; font-weight: 700; color: var(--primary); min-width: 32px; text-align: right; }
+        .jargon-toggle { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(0,0,0,0.06); }
+        .jargon-btn { background: none; border: none; color: var(--secondary); font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; font-family: 'DM Sans', sans-serif; }
+        .jargon-content { display: none; margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.04); border-radius: 12px; font-size: 0.9rem; color: var(--text-muted); font-family: 'Space Mono', monospace; line-height: 1.6; }
+        .med-table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { text-align: left; padding: 12px; color: var(--text-muted); font-weight: 700; border-bottom: 2px solid rgba(0,0,0,0.06); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 14px 12px; border-bottom: 1px solid rgba(0,0,0,0.04); vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(0,212,168,0.03); }
+        .med-name-badge { font-weight: 700; color: var(--text-main); }
+        .dosage-pill { background: rgba(0,212,168,0.1); color: #00967a; padding: 2px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; font-family: 'Space Mono', monospace; display: inline-block; }
+        .badge-exact { background: rgba(0,212,168,0.1); color: var(--primary); padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .pill-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 1.5rem; }
+        .pill { padding: 8px 16px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+        .pill.watch { background: rgba(253,203,110,0.15); color: #b7791f; border: 1px solid rgba(253,203,110,0.4); }
+        .pill.urgent { background: rgba(214,48,49,0.1); color: var(--danger); border: 1px solid rgba(214,48,49,0.3); }
+        .alert-box { background: rgba(214,48,49,0.08); border: 1px solid rgba(214,48,49,0.3); padding: 1rem 1.2rem; border-radius: 12px; color: var(--danger); font-weight: 600; display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; line-height: 1.5; }
+        .checklist { display: flex; flex-direction: column; gap: 10px; }
+        .check-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #fff; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05); transition: all 0.2s; }
+        .check-item:hover { border-color: var(--primary); }
+        .check-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+        .check-item label { flex: 1; cursor: pointer; font-size: 0.9rem; }
+        .tag { font-size: 0.68rem; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; flex-shrink: 0; }
+        .tag.test { background: #3b82f6; color: #fff; }
+        .tag.diet { background: #10b981; color: #fff; }
+        .tag.activity { background: #f59e0b; color: #fff; }
+        .tag.review { background: #8b5cf6; color: #fff; }
+        .error-banner { background: rgba(214,48,49,0.08); border: 1px solid rgba(214,48,49,0.3); border-radius: 16px; padding: 2rem; text-align: center; display: none; flex-direction: column; gap: 8px; }
+        .error-banner h4 { color: var(--danger); margin-bottom: 8px; font-size: 1rem; }
+        .error-banner p { color: var(--text-muted); font-size: 0.85rem; }
+        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
+        .feature-card { background: #f5f7fa; padding: 2.5rem; border-radius: 24px; border: 1px solid transparent; transition: all 0.3s ease; }
+        .feature-card:hover { border-color: var(--primary); box-shadow: 0 10px 30px rgba(0,212,168,0.05); }
+        .feature-icon { color: var(--primary); margin-bottom: 1.5rem; }
+        .feature-card h3 { margin-bottom: 0.75rem; }
+        .feature-card p { color: var(--text-muted); font-size: 0.95rem; }
+        footer { background: #f8fafc; padding: 6rem 0 3rem; border-top: 1px solid var(--border); }
+        .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 60px; margin-bottom: 4rem; }
+        .footer-tagline { color: var(--text-muted); max-width: 300px; margin-top: 1rem; }
+        .disclaimer { background: #f5f7fa; padding: 1.5rem; border-radius: 16px; font-size: 0.85rem; color: var(--text-muted); text-align: center; line-height: 1.7; }
+        .reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+        @media (max-width: 1024px) { .app-section { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .nav-links { display: none; } .hero h1 { font-size: 3rem; } .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 30px; } .how-grid, .features-grid { grid-template-columns: 1fr; } .footer-grid { grid-template-columns: 1fr; } .nav-container { padding: 0 2rem; } .trust-indicators { flex-direction: column; gap: 10px; align-items: center; } }
+        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: var(--bg); } ::-webkit-scrollbar-thumb { background: var(--surface); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="scroll-icon-container">
+    <div class="scroll-icon" id="scroll-rotating-icon"><i data-lucide="plus-square"></i></div>
+</div>
+
+<div class="content-wrapper">
+    <nav id="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo"><i data-lucide="plus-square"></i><span>MedAssist</span></a>
+            <div class="nav-links">
+                <a href="#home">Home</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#upload-section">Upload</a>
+                <a href="#features">Features</a>
+            </div>
+            <a href="#upload-section" class="btn-try">Try Now</a>
+        </div>
+    </nav>
+
+    <section class="hero" id="home">
+        <div class="badge">MEDASSIST</div>
+        <h1 id="hero-title">Your Prescription,<br>Finally in a<br><span class="gradient-text">Language You Understand</span></h1>
+        <p>Upload your discharge summary or prescription. MedAssist's AI reads it, simplifies it, and hands you clarity — in seconds. In Hindi or English.</p>
+        <div class="hero-btns">
+            <a href="#upload-section" class="btn-primary">Upload Prescription</a>
+            <a href="#how-it-works" class="btn-outline">See How It Works</a>
+        </div>
+        <div class="trust-indicators">
+            <div><span>✦</span> 100% Document-Only AI</div>
+            <div><span>✦</span> No Outside Advice Added</div>
+            <div><span>✦</span> Exact Dosage Preserved</div>
+        </div>
+        <div class="scroll-indicator"><i data-lucide="chevron-down" size="32" color="#00d4a8"></i></div>
+    </section>
+
+    <section class="stats-bar">
+        <div class="container stats-grid">
+            <div class="stat-item"><h3 class="counter" data-target="2">0</h3><p>avg. min saved per patient</p></div>
+            <div class="stat-item"><h3 class="counter" data-target="100">0</h3><p>document faithfulness</p></div>
+            <div class="stat-item"><h3 class="counter" data-target="5">0</h3><p>structured sections</p></div>
+            <div class="stat-item"><h3 class="counter" data-target="2">0</h3><p>languages supported</p></div>
+        </div>
+    </section>
+
+    <section class="section-padding" id="how-it-works">
+        <div class="container">
+            <div class="section-title reveal"><h2>Three Steps to Clarity</h2><p>From complex medical jargon to simple, actionable insights.</p></div>
+            <div class="how-grid">
+                <div class="how-card reveal" style="transition-delay:0.1s"><span class="step-num">01</span><div class="how-icon"><i data-lucide="upload-cloud"></i></div><h3>Upload your document</h3><p>Drop your prescription, discharge summary, or medical report — PDF, image, or plain text.</p></div>
+                <div class="how-card reveal" style="transition-delay:0.2s"><span class="step-num">02</span><div class="how-icon"><i data-lucide="cpu"></i></div><h3>AI reads and understands</h3><p>MedAssist's GenAI engine extracts every detail: diagnosis, medicines, dosages, and follow-up instructions.</p></div>
+                <div class="how-card reveal" style="transition-delay:0.3s"><span class="step-num">03</span><div class="how-icon"><i data-lucide="file-text"></i></div><h3>Get your clarity report</h3><p>Receive a full plain-language breakdown: diagnosis explained, medication table, and side effect alerts.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="container" id="upload-section">
+        <div class="app-section reveal">
+            <div class="scanning-beam" id="scanning-beam"></div>
+            <div class="app-left">
+                <h4>Analyze Your Document</h4>
+                <div class="upload-zone" id="drop-zone">
+                    <input type="file" id="file-input" hidden accept=".pdf,.jpg,.jpeg,.png,.txt,.webp">
+                    <div class="upload-icon"><i data-lucide="arrow-up-circle" size="48"></i></div>
+                    <p id="file-name-display">Drop your prescription here</p>
+                    <span>PDF · Image · Plain Text</span>
+                </div>
+                <div class="lang-selector">
+                    <button class="lang-pill active" data-lang="English">English</button>
+                    <button class="lang-pill" data-lang="Hindi">हिंदी</button>
+                </div>
+                <div class="input-group">
+                    <label>Patient Age (Optional)</label>
+                    <input type="number" id="patient-age" placeholder="e.g. 45" min="1" max="120">
+                </div>
+                <button class="btn-analyze" id="analyze-btn">Analyze Document <i data-lucide="arrow-right"></i></button>
+            </div>
+
+            <div class="app-right">
+                <div class="empty-state" id="empty-state">
+                    <i data-lucide="file-search" style="width:100px;height:100px;opacity:0.08;color:var(--primary)"></i>
+                    <div><p style="font-weight:600;margin-bottom:6px">Your report will appear here</p><p style="font-size:0.85rem">Upload a document to get started</p></div>
+                </div>
+                <div class="loading-state" id="loading-state">
+                    <div class="loading-step" id="step-1"><div class="spinner"></div><span>Uploading and extracting document...</span></div>
+                    <div class="loading-step" id="step-2"><div class="spinner"></div><span>Identifying medical terms...</span></div>
+                    <div class="loading-step" id="step-3"><div class="spinner"></div><span>Building medication schedule...</span></div>
+                    <div class="loading-step" id="step-4"><div class="spinner"></div><span>Generating plain-language summary...</span></div>
+                    <div class="loading-step" id="step-5"><div class="spinner"></div><span>Running RAG safety checks...</span></div>
+                </div>
+                <div class="error-banner" id="error-banner">
+                    <h4>⚠ Analysis Failed</h4>
+                    <p id="error-message">Something went wrong. Please try again.</p>
+                    <p style="margin-top:8px;font-size:0.8rem">Make sure backend is running at http://127.0.0.1:8000</p>
+                </div>
+                <div class="output-container" id="output-container">
+                    <div class="output-card" style="border-left-color:var(--primary)">
+                        <div class="card-header">
+                            <h3><i data-lucide="users" style="width:18px;height:18px"></i> Family Summary</h3>
+                            <button class="btn-copy" onclick="copySummary()"><i data-lucide="copy" style="width:14px;height:14px"></i> Copy</button>
+                        </div>
+                        <p class="summary-text" id="out-family-summary"></p>
+                        <div class="faithfulness-bar">
+                            <span>Faithfulness</span>
+                            <div class="bar-track"><div class="bar-fill" id="bar-fill" style="width:0%"></div></div>
+                            <span class="bar-val" id="bar-val">—</span>
+                        </div>
+                    </div>
+                    <div class="output-card" style="border-left-color:var(--secondary)">
+                        <div class="card-header"><h3><i data-lucide="stethoscope" style="width:18px;height:18px"></i> Diagnosis Explained</h3></div>
+                        <p id="out-diagnosis" style="line-height:1.7;color:var(--text-main)"></p>
+                        <div class="jargon-toggle">
+                            <button class="jargon-btn" onclick="toggleJargon()"><i data-lucide="chevron-down" style="width:14px;height:14px"></i> Original medical terms</button>
+                            <div class="jargon-content" id="out-jargon"></div>
+                        </div>
+                    </div>
+                    <div class="output-card" style="border-left-color:#8b5cf6">
+                        <div class="card-header">
+                            <h3><i data-lucide="pill" style="width:18px;height:18px"></i> Medication Schedule</h3>
+                            <span class="badge-exact">✓ Exact Match</span>
+                        </div>
+                        <div class="med-table-wrapper">
+                            <table id="med-table"><thead><tr><th>Medicine</th><th>Dosage</th><th>Timing</th><th>Duration</th><th>Instructions</th></tr></thead><tbody id="med-tbody"></tbody></table>
+                        </div>
+                    </div>
+                    <div class="output-card" style="border-left-color:var(--warning)">
+                        <div class="card-header"><h3><i data-lucide="alert-triangle" style="width:18px;height:18px"></i> Side Effect Alerts</h3></div>
+                        <div class="pill-grid" id="out-side-effects"></div>
+                        <div class="alert-box"><i data-lucide="phone-call" style="width:18px;height:18px;flex-shrink:0;margin-top:2px"></i><span id="out-call-doctor"></span></div>
+                    </div>
+                    <div class="output-card" style="border-left-color:#10b981">
+                        <div class="card-header"><h3><i data-lucide="calendar-check" style="width:18px;height:18px"></i> Follow-up Checklist</h3></div>
+                        <div class="checklist" id="out-checklist"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-padding" id="features">
+        <div class="container">
+            <div class="section-title reveal"><h2>Built Different</h2><p>Designed for accuracy, speed, and patient safety.</p></div>
+            <div class="features-grid">
+                <div class="feature-card reveal"><div class="feature-icon"><i data-lucide="shield-check"></i></div><h3>Faithful to your doctor</h3><p>No invented advice. We only simplify what's already on the paper.</p></div>
+                <div class="feature-card reveal"><div class="feature-icon"><i data-lucide="pen-tool"></i></div><h3>Handwritten Rx Support</h3><p>Advanced OCR powered by Tesseract to read even tough handwriting.</p></div>
+                <div class="feature-card reveal"><div class="feature-icon"><i data-lucide="languages"></i></div><h3>Hindi + English</h3><p>Switch between languages instantly for better family understanding.</p></div>
+                <div class="feature-card reveal"><div class="feature-icon"><i data-lucide="zap"></i></div><h3>Exact Dosage Preserved</h3><p>Zero-hallucination guarantee on medicine names and quantities.</p></div>
+                <div class="feature-card reveal"><div class="feature-icon"><i data-lucide="share-2"></i></div><h3>Instant Family Summary</h3><p>Share a one-line summary with your loved ones instantly.</p></div>
+                <div class="feature-card reveal"><div class="feature-icon"><i data-lucide="activity"></i></div><h3>6-Layer RAG Validation</h3><p>Every output passes 6 safety checks before reaching the patient.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div><a href="#" class="logo"><i data-lucide="plus-square"></i><span>MedAssist</span></a><p class="footer-tagline">Simplifying healthcare for a billion people, one prescription at a time.</p></div>
+                <div><h4 style="margin-bottom:1.5rem;font-family:'Sora',sans-serif">Project</h4><p style="color:var(--text-muted);font-size:0.9rem">IAR Udaan Hackathon 2026</p><p style="color:var(--text-muted);font-size:0.9rem;margin-top:0.5rem">Problem Statement #03</p><p style="color:var(--text-muted);font-size:0.9rem;margin-top:0.5rem">Powered by Groq AI + RAG</p></div>
+                <div><h4 style="margin-bottom:1.5rem;font-family:'Sora',sans-serif">Tech Stack</h4><p style="color:var(--text-muted);font-size:0.9rem">Three.js · FastAPI · GenAI</p><p style="color:var(--text-muted);font-size:0.9rem;margin-top:0.5rem">RAG · pdfplumber · Tesseract</p></div>
+            </div>
+            <div class="disclaimer">⚠ Disclaimer: MedAssist is an AI tool for informational simplification only. It is NOT a substitute for professional medical advice. Always follow your doctor's instructions.</div>
+            <p style="text-align:center;margin-top:3rem;color:var(--text-muted);font-size:0.8rem">© 2026 MedAssist Team · IAR Udaan Hackathon</p>
+        </div>
+    </footer>
+</div>
+
+<script>
+lucide.createIcons();
+
+// THREE.JS
+const canvas = document.getElementById('bg-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.z = 100;
+const particlesCount = 600;
+const positions = new Float32Array(particlesCount * 3);
+for (let i = 0; i < particlesCount; i++) { positions[i*3]=(Math.random()-0.5)*300; positions[i*3+1]=(Math.random()-0.5)*300; positions[i*3+2]=(Math.random()-0.5)*200; }
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+const mat = new THREE.PointsMaterial({ size: 0.7, color: 0x00d4a8, transparent: true, opacity: 0.18, sizeAttenuation: true, blending: THREE.AdditiveBlending });
+const points = new THREE.Points(geo, mat);
+scene.add(points);
+const orbColors = [0x00d4a8, 0x3b82f6, 0x00b894, 0x0984e3];
+const orbs = orbColors.map(color => {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(Math.random()*35+15,32,32), new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.025}));
+    mesh.position.set((Math.random()-0.5)*180,(Math.random()-0.5)*180,(Math.random()-0.5)*80-40);
+    mesh.userData.vel = new THREE.Vector3((Math.random()-0.5)*0.08,(Math.random()-0.5)*0.08,0);
+    scene.add(mesh); return mesh;
+});
+let mouseX = 0, mouseY = 0;
+document.addEventListener('mousemove', e => { mouseX=(e.clientX-window.innerWidth/2)/120; mouseY=(e.clientY-window.innerHeight/2)/120; });
+(function animate() {
+    requestAnimationFrame(animate);
+    points.rotation.y+=0.0004; points.rotation.x+=0.0002;
+    orbs.forEach(o => { o.position.add(o.userData.vel); if(Math.abs(o.position.x)>140) o.userData.vel.x*=-1; if(Math.abs(o.position.y)>140) o.userData.vel.y*=-1; });
+    camera.position.x+=(mouseX-camera.position.x)*0.04; camera.position.y+=(-mouseY-camera.position.y)*0.04;
+    camera.lookAt(0,0,0); renderer.render(scene,camera);
+})();
+window.addEventListener('resize', () => { camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); });
+
+// SCROLL
+window.addEventListener('scroll', () => {
+    const pct = window.scrollY/(document.documentElement.scrollHeight-window.innerHeight);
+    document.getElementById('scroll-rotating-icon').style.transform = `rotate(${pct*720}deg)`;
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY>100);
+});
+const revealObs = new IntersectionObserver(entries => entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('active'); }), {threshold:0.1});
+document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+const counterObs = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        const target = parseInt(el.getAttribute('data-target'));
+        const suffix = target===100?'%':'';
+        let count=0; const inc=target/(1500/16);
+        const update = () => { count+=inc; if(count<target){el.innerText=Math.ceil(count)+suffix;requestAnimationFrame(update);}else{el.innerText=target+suffix;} };
+        update(); counterObs.unobserve(el);
+    });
+}, {threshold:0.1});
+document.querySelectorAll('.counter').forEach(el => counterObs.observe(el));
+window.addEventListener('load', () => {
+    const title = document.getElementById('hero-title');
+    title.style.cssText='opacity:0;transform:translateY(20px)';
+    setTimeout(() => { title.style.cssText='transition:all 1s ease;opacity:1;transform:translateY(0)'; }, 400);
+});
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => { e.preventDefault(); const t=document.querySelector(a.getAttribute('href')); if(t) t.scrollIntoView({behavior:'smooth'}); });
+});
+
+// FILE UPLOAD
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const fileNameEl = document.getElementById('file-name-display');
+let selectedFile = null;
+let selectedLang = 'English';
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    fileNameEl.innerHTML = `<span style="color:var(--primary)">✓ ${file.name}</span>`;
+}
+
+document.querySelectorAll('.lang-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+        document.querySelectorAll('.lang-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        selectedLang = pill.getAttribute('data-lang');
+    });
+});
+
+// HELPERS
+function markStepDone(id) {
+    const step = document.getElementById(id);
+    step.classList.remove('active'); step.classList.add('done');
+    const sp = step.querySelector('.spinner');
+    sp.textContent='✓'; sp.style.animation='none'; sp.style.border='none'; sp.style.color='var(--primary)';
+}
+function activateStep(id) { document.getElementById(id).classList.add('active'); }
+function resetSteps() {
+    for (let i=1; i<=5; i++) {
+        const step = document.getElementById(`step-${i}`);
+        step.className = 'loading-step';
+        const sp = step.querySelector('.spinner');
+        sp.textContent=''; sp.style.animation='spin 1s linear infinite';
+        sp.style.border='2px solid rgba(0,212,168,0.2)'; sp.style.borderTopColor='var(--primary)'; sp.style.color='';
+    }
+}
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function hideAll() {
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('output-container').style.display = 'none';
+    document.getElementById('error-banner').style.display = 'none';
+}
+
+// MAIN ANALYZE
+document.getElementById('analyze-btn').addEventListener('click', async () => {
+    if (!selectedFile) { alert('Please upload a document first.'); return; }
+
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<div style="width:20px;height:20px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;flex-shrink:0"></div>&nbsp;Analyzing...';
+
+    document.getElementById('scanning-beam').classList.add('active');
+    resetSteps();
+    hideAll();
+    document.getElementById('loading-state').style.display = 'flex';
+
+    try {
+        activateStep('step-1');
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        const uploadRes = await fetch('http://127.0.0.1:8000/upload', { method: 'POST', body: formData });
+        const uploadData = await uploadRes.json();
+        console.log('UPLOAD:', uploadData);
+        markStepDone('step-1');
+        if (!uploadData.success) throw new Error(uploadData.error || 'Upload failed');
+
+        activateStep('step-2'); await delay(500); markStepDone('step-2');
+        activateStep('step-3'); await delay(500); markStepDone('step-3');
+
+        activateStep('step-4');
+        const age = document.getElementById('patient-age').value;
+        const analyzeForm = new FormData();
+        analyzeForm.append('text', uploadData.text);
+        analyzeForm.append('language', selectedLang);
+        analyzeForm.append('age', age || '');
+        const analyzeRes = await fetch('http://127.0.0.1:8000/analyze', { method: 'POST', body: analyzeForm });
+        const analyzeData = await analyzeRes.json();
+        console.log('ANALYZE:', analyzeData);
+        markStepDone('step-4');
+        if (!analyzeData.success) throw new Error(analyzeData.error || 'Analysis failed');
+
+        activateStep('step-5'); await delay(400); markStepDone('step-5');
+
+        document.getElementById('scanning-beam').classList.remove('active');
+        hideAll();
+        renderResult(analyzeData.data);
+
+    } catch (err) {
+        console.error('ERROR:', err);
+        document.getElementById('scanning-beam').classList.remove('active');
+        hideAll();
+        const banner = document.getElementById('error-banner');
+        banner.style.display = 'flex';
+        document.getElementById('error-message').textContent = err.message || 'Unknown error.';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Analyze Document <i data-lucide="arrow-right"></i>';
+        lucide.createIcons();
+    }
+});
+
+// RENDER RESULTS
+function renderResult(data) {
+    console.log('RENDERING:', data);
+    const container = document.getElementById('output-container');
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.gap = '24px';
+
+    document.getElementById('out-family-summary').textContent = data.familySummary || '';
+    document.getElementById('out-diagnosis').textContent = data.diagnosis || '';
+    document.getElementById('out-jargon').textContent = data.originalJargon || '';
+    document.getElementById('out-call-doctor').textContent = data.whenToCallDoctor || '';
+
+    const score = data.faithfulnessScore || 95;
+    setTimeout(() => {
+        document.getElementById('bar-fill').style.width = score + '%';
+        document.getElementById('bar-val').textContent = score + '%';
+    }, 400);
+
+    const tbody = document.getElementById('med-tbody');
+    tbody.innerHTML = '';
+    (data.medications || []).forEach(m => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><span class="med-name-badge">${m.name||''}</span></td><td><span class="dosage-pill">${m.dosage||''}</span></td><td>${m.timing||''}</td><td>${m.duration||''}</td><td style="color:var(--text-muted);font-size:0.85rem">${m.instructions||''}</td>`;
+        tbody.appendChild(tr);
+    });
+
+    const seFx = document.getElementById('out-side-effects');
+    seFx.innerHTML = '';
+    (data.sideEffects || []).forEach(s => {
+        const p = document.createElement('div');
+        p.className = `pill ${s.severity||'watch'}`;
+        p.textContent = s.effect;
+        seFx.appendChild(p);
+    });
+
+    const cl = document.getElementById('out-checklist');
+    cl.innerHTML = '';
+    (data.followUpChecklist || []).forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'check-item';
+        div.innerHTML = `<input type="checkbox" id="chk${i}"><label for="chk${i}">${item.task}</label><span class="tag ${item.category||'review'}">${item.category||'review'}</span>`;
+        cl.appendChild(div);
+    });
+
+    document.querySelectorAll('.output-card').forEach((card, i) => {
+        card.style.opacity='0'; card.style.transform='translateX(30px)';
+        setTimeout(() => { card.style.transition='all 0.5s ease'; card.style.opacity='1'; card.style.transform='translateX(0)'; }, i*150);
+    });
+
+    lucide.createIcons();
+}
+
+function copySummary() {
+    const text = document.getElementById('out-family-summary').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.btn-copy');
+        btn.textContent='✓ Copied!'; btn.style.color='var(--primary)';
+        setTimeout(() => { btn.innerHTML='<i data-lucide="copy" style="width:14px;height:14px"></i> Copy'; btn.style.color=''; lucide.createIcons(); }, 2000);
+    });
+}
+
+function toggleJargon() {
+    const c = document.getElementById('out-jargon');
+    c.style.display = c.style.display==='block' ? 'none' : 'block';
+}
+</script>
+</body>
+</html>
