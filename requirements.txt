@@ -6,4 +6,5 @@ pillow
 pytesseract
 fitz
 python-dotenv
+python-multipart
 # Add any other dependencies your backend uses below
