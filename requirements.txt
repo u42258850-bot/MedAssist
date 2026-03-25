@@ -5,4 +5,5 @@ pdfplumber
 pillow
 pytesseract
 fitz
+python-dotenv
 # Add any other dependencies your backend uses below
